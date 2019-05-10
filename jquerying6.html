@@ -1,0 +1,482 @@
+<style>
+td, th {
+    padding: 10px;
+}
+div#filter {
+    padding: 10px;
+    margin-top: 10px;
+}
+
+select#selectMe {
+    padding: 10px;
+    width: 80%;
+}
+</style>
+
+
+<div class="row container">
+	<div class="col-md-8 sponsorship">
+		<table class="cosponsored legislationtable" style='display:none;' id="cosponsored_table">
+			<h2 id="cosponsoredHeading" class="cosponsored" style='display:none;'>Cosponsored Legislation</h2>
+			<tr>
+				<th id="bill-number" class="col-md-3">Bill #</th>
+				<th id="bill-description" class="col-md-6">Bill Description</th>
+				<th id="bill-updated" class="col-md-3" >Updated</th>
+			</tr>
+		</table>
+		<table class="sponsored legislationtable row" class="sponsored" id="sponsored_table">
+			<h2 id="sponsoredHeading" class="sponsored">Sponsored Legislation</h2></br>
+				<tr >
+					<th id="bill-number" class="col-md-3">Bill #</th>
+					<th id="bill-description" class="col-md-6">Bill Description</th>
+					<th id="bill-updated" class="col-md-3">Updated</th>
+				</tr>
+		</table>
+		<h3 id="loadingCo" class="loading" style="display: none;">Loading... Please Wait...</h3>
+		<h3 id="loadingSp" class="loading">Loading... Please Wait...</h3>
+	</div>
+	<div class="col-md-4" id="filter">
+		<select id="selectMe" name="sponsored">
+			<option value=""  selected="selected">By Sponsorship</option>
+			<option class="spon" value="1" >Sponsored&nbsp;</option>
+			<option class="cosp" value="2">Cosponsored&nbsp;</option>
+		</select>
+		<div id="congressSelectHere">
+			Filter by Congress:
+			<!--Congress filter goes here.-->
+		</div>
+		<aside id="search-thomas">
+			<div id="search-thomas-pod" class="inline-search">
+				<h3>Search Congress.gov</h3>
+				<label for="thomas_search"><span class="hidden">Search Congress</span></label>
+				<form id="congress" title="Thomas Search" class="form-inline form">
+					<input type="hidden" name="congress" id="congress" value="115">
+					<input type="hidden" name="database" value="text">
+					<input name="MaxDocs" type="hidden" value="1000">
+					<div class="row">
+						<div class="col-xs-9">
+							<input id="thomas_search" name="query" value="" type="text" class="form-control" placeholder="Search">
+						</div>
+						<div class="col-xs-3">
+							<input class="btn btn-block" name="Search" type="submit" id="side-search-btn" value="Go">
+						</div>
+					</div>
+				</form>
+				<script>
+					jQuery(document).ready(function($) {
+						$("#side-search-btn").click(function(){
+							var q;
+							var c;
+							c=$("#congress").val();
+							q=$("#thomas_search").val();
+							window.open(
+								"https://www.congress.gov/search?q=%7B%22source%22%3A%22legislation%22%2C%22congress%22%3A%22"+c+"%22%2C%22search%22%3A%22"+q+"%22%7D",
+								"_newtab"
+							);
+						});
+						$('#form_thomas_search').submit(function(){
+							var q;
+							var c;
+							c=$("#congress").val();
+							q=$("#thomas_search").val();
+							// window.location = "https://www.congress.gov/search?q=%7B"+q;
+							window.open(
+								"https://www.congress.gov/search?q=%7B%22source%22%3A%22legislation%22%2C%22congress%22%3A%22"+c+"%22%2C%22search%22%3A%22"+q+"%22%7D",
+								"_newtab"
+							);
+							event.preventDefault();
+						});
+					});
+				</script>
+			</div>
+		</aside>
+		<aside class="list ">
+			<div id="sam-congressionalrecord" class="amend-textarea">
+				<h2>Congress.gov Information</h2>
+				<p>The leadership of the 104th Congress directed the Library of Congress to make federal legislative information freely available to the public. <a href="http://www.congress.gov">See all Legislation at Congress.gov&nbsp;»</a></p>
+			</div>
+		</aside>
+	</div>
+</div>
+<script>
+	jQuery(document).ready(function($) {
+		$page = "1";
+		$pageNumSpons = 0;
+		$pageNumCospons = 0;
+		/* INITIAL SPONSORED DATA */
+		jQuery("#loadingSp").show();
+		jQuery("#selectMe").attr("disabled", "disabled");
+		$.getJSON("https://congress.api.sunlightfoundation.com/bills?apikey=3sGdHQvxew7uvkKUNBYOa8C8J5vev1735fPSGGBk&sponsor_id=P000603&per_page=10", function( data ) {
+			createPages();
+			sponsored ();
+			makeFilter();
+			//Create the data table. Since by default it's meant to be all congresses, this isn't a problem.
+			function sponsored (){
+				data.results.forEach(function(e) {
+					var row = $('<tr class="resultSp"><td><a href="' + e.urls.congress  +'" target="_blank">' + e.bill_id + '</a></td><td>' + e.official_title + '</td><td>' + e.introduced_on + '</td></tr>');
+					$('#sponsored_table').append(row);
+				});
+			}
+			//Create the page select and its options. If the Congress filter is changed, this must be regenerated later in the code.
+			function createPages() {
+				$pageNumSpons = Math.ceil(data.count / 10);
+				$options = '<div id = "pageSelectSponsoredDiv" class = "sponsored">Showing page <select class="span4 pageSelect sponsored" name="pageSelect" id="pageSelectSponsored" title="Select Page">';
+				for ($i = 0; $i < $pageNumSpons; $i++) {
+					if ($i == 0) {
+						$options += ('<option value="' + ($i + 1) + '" selected="selected">' + ($i + 1) + '</option>');
+					}
+					else {
+						$options += ('<option value="' + ($i + 1) + '">' + ($i + 1) + '</option>');
+					}
+				}
+				$options += ('</select>&nbsp;of&nbsp;' + $pageNumSpons + '</div>')
+				jQuery("#pageSelectGoesHere").append($options);
+			}
+			//Create the Congress filter. 
+			function makeFilter() {
+				$pagesToFilterSp = Math.ceil(data.count / 10);
+				$congresses = [];
+				$html = '<select class="span4 sponsored congressSelect" name="sponsoredCongresses" id="sponsoredCongresses" title="Select Congress"><option value="default" selected="selected">All Congresses</option>';
+				getOptionsSp();
+				$html += '</select>';
+				jQuery("#congressSelectHere").append($html);
+				function getOptionsSp() {
+					for ($i = 0; $i <= $pagesToFilterSp; $i++) {
+						if ($i == 0) {
+							$.getJSON("https://congress.api.sunlightfoundation.com/bills?apikey=3sGdHQvxew7uvkKUNBYOa8C8J5vev1735fPSGGBk&sponsor_id=P000603&per_page=10", function(data) {
+								data.results.forEach(function(e) {
+									if ($.inArray(e.congress, $congresses) == -1) {
+										$congresses.push(e.congress);
+										jQuery("#sponsoredCongresses").append('<option class="sponsored" value="' + e.congress + '">' + e.congress + '</option>');
+									}
+								});
+							});
+						}
+						else {
+							$url = "https://congress.api.sunlightfoundation.com/bills?apikey=3sGdHQvxew7uvkKUNBYOa8C8J5vev1735fPSGGBk&sponsor_id=P000603&per_page=10&page=" + ($i + 1);
+							$.getJSON($url, function(data) {
+								data.results.forEach(function(e) {
+									if ($.inArray(e.congress, $congresses) == -1) {
+										$congresses.push(e.congress);
+										jQuery("#sponsoredCongresses").append('<option class="sponsored" value="' + e.congress + '">' + e.congress + '</option>');
+									}
+								});
+							});
+						}
+					}
+				}
+				jQuery("#loadingSp").hide();
+				$("#selectMe").removeAttr('disabled');
+			}
+		});
+		/* INITIAL COSPONSORED DATA */
+		$.getJSON("https://congress.api.sunlightfoundation.com/bills?apikey=3sGdHQvxew7uvkKUNBYOa8C8J5vev1735fPSGGBk&cosponsor_ids__all=P000603&per_page=10", function(data) {
+			createPages();
+			cosponsored();
+			makeFilter();
+			//Create the data table.
+			function cosponsored (){
+				data.results.forEach(function(e) {
+					var row = $('<tr class="resultCo"><td><a href="' + e.urls.congress  +'" target="_blank">' + e.bill_id + '</a></td><td>' + e.official_title + '</td><td>' + e.introduced_on + '</td></tr>');
+					$('#cosponsored_table').append(row);
+				})
+			}
+			//Create the page select and its options.
+			function createPages() {
+				$pageNumCospons = Math.ceil(data.count / 10);
+				$options = '<div id="pageSelectCosponsoredDiv" class = "cosponsored">Showing page <select class="span4 pageSelect cosponsored" name="pageSelect" id="pageSelectCosponsored"  title="Select Page">';
+				for ($i = 0; $i < $pageNumCospons; $i++) {
+					if ($i == 0) {
+						$options += ('<option value="' + ($i + 1) + '" selected="selected">' + ($i + 1) + '</option>');
+					}
+					else {
+						$options += ('<option value="' + ($i + 1) + '">' + ($i + 1) + '</option>');
+					}
+				}
+				$options += ('</select>&nbsp;of&nbsp;' + $pageNumCospons + '</div>')
+				jQuery("#pageSelectGoesHere").append($options);
+				jQuery(".cosponsored").hide();
+			}
+			//Create the Congress filter.
+			function makeFilter() {
+				$pagesToFilterCo = Math.ceil(data.count / 10);
+				$congressesCo = [];
+				$html = '<select class="span4 cosponsored congressSelect" name="cosponsoredCongresses" id="cosponsoredCongresses" title="Select Congress"><option value="default" selected="selected">All Congresses</option>';
+				getOptionsCo();
+				$html += '</select>';
+				jQuery("#congressSelectHere").append($html);
+				jQuery(".cosponsored").hide();
+				function getOptionsCo() {
+					for ($i = 0; $i <= $pagesToFilterCo; $i++) {
+						if ($i == 0) {
+							$.getJSON("https://congress.api.sunlightfoundation.com/bills?apikey=3sGdHQvxew7uvkKUNBYOa8C8J5vev1735fPSGGBk&cosponsor_ids__all=P000603&per_page=10", function(data) {
+								data.results.forEach(function(e) {
+									if ($.inArray(e.congress, $congressesCo) == -1) {
+										$congressesCo.push(e.congress);
+										jQuery("#cosponsoredCongresses").append('<option value="' + e.congress + '">' + e.congress + '</option>');
+									}
+								});
+							});
+						}
+						else {
+							$urlCo = "https://congress.api.sunlightfoundation.com/bills?apikey=3sGdHQvxew7uvkKUNBYOa8C8J5vev1735fPSGGBk&cosponsor_ids__all=P000603&per_page=10&page=" + ($i + 1);
+							$.getJSON($urlCo, function(data) {
+								data.results.forEach(function(e) {
+									if ($.inArray(e.congress, $congressesCo) == -1) {
+										$congressesCo.push(e.congress);
+										jQuery("#cosponsoredCongresses").append('<option value="' + e.congress + '">' + e.congress + '</option>');
+									}
+								});
+							});
+						}
+					}
+				}
+				jQuery("#loadingCo").hide();
+			}
+		});
+		/* DETECT PAGE SELECTION */
+		$(document).on('change', '.pageSelect', function() {
+			$(this).attr('disabled', 'disabled');
+			$str = "";
+			$("option:selected", this).each(function() {
+				$str += $(this).text();
+			});
+			$page = $str;
+			/* This gets the JSON data from the API.*/
+			$requestSponsored = "https://congress.api.sunlightfoundation.com/bills?apikey=3sGdHQvxew7uvkKUNBYOa8C8J5vev1735fPSGGBk&sponsor_id=P000603&per_page=10";
+			$requestCosponsored = "https://congress.api.sunlightfoundation.com/bills?apikey=3sGdHQvxew7uvkKUNBYOa8C8J5vev1735fPSGGBk&cosponsor_ids__all=P000603&per_page=10";
+			if (parseInt($page) > 1) {
+				$requestSponsored += "&page=" + $page;
+				$requestCosponsored += "&page=" + $page;
+			}
+			if ($("#selectMe option:selected").val() == "1") {
+				jQuery(".resultSp").hide();
+				jQuery("#loadingSp").show();
+				if ($("#sponsoredCongresses option:selected").val() != "default") {
+					$requestSponsored += ("&congress=" + $("#sponsoredCongresses option:selected").val());
+				}
+				console.log($requestSponsored);
+				$.getJSON($requestSponsored, function( data ) {
+					sponsored ();
+					function sponsored (){
+						jQuery(".resultSp").remove();
+						data.results.forEach(function(e) {
+							var row = $('<tr class="resultSp"><td><a href="' + e.urls.congress  +'" target="_blank">' + e.bill_id + '</a></td><td>' + e.official_title + '</td><td>' + e.introduced_on + '</td></tr>');
+							$('#sponsored_table').append(row);
+						});
+						jQuery("#loadingSp").hide();
+						$(".pageSelect").removeAttr('disabled');
+					}
+				});
+			}
+			else if ($("#selectMe option:selected").val() == "2") {
+				jQuery(".resultCo").hide();
+				jQuery("#loadingCo").show();
+				if ($("#cosponsoredCongresses option:selected").val() != "default") {
+					$requestCosponsored += ("&congress=" + $("#cosponsoredCongresses option:selected").val());
+				}
+				$.getJSON($requestCosponsored, function(data) {
+					cosponsored ();
+					function cosponsored (){
+						jQuery(".resultCo").remove();
+						data.results.forEach(function(e) {
+							var row = $('<tr class="resultCo"><td><a href="' + e.urls.congress  +'" target="_blank">' + e.bill_id + '</a></td><td>' + e.official_title + '</td><td>' + e.introduced_on + '</td></tr>');
+							$('#cosponsored_table').append(row);
+						});
+						jQuery("#loadingCo").hide();
+						$(".pageSelect").removeAttr('disabled');
+					}
+				});
+			}
+			//Default to 1.
+			else {
+				jQuery(".resultSp").hide();
+				jQuery("#loadingSp").show();
+				if ($("#sponsoredCongresses option:selected").val() != "default") {
+					$requestSponsored += ("&congress=" + $("#sponsoredCongresses option:selected").val());
+				}
+				$.getJSON($requestSponsored, function( data ) {
+					sponsored ();
+					function sponsored (){
+						jQuery(".resultSp").remove();
+						data.results.forEach(function(e) {
+							var row = $('<tr class="resultSp"><td><a href="' + e.urls.congress  +'" target="_blank">' + e.bill_id + '</a></td><td>' + e.official_title + '</td><td>' + e.introduced_on + '</td></tr>');
+							$('#sponsored_table').append(row);
+						});
+						jQuery("#loadingSp").hide();
+						$(".pageSelect").removeAttr('disabled');
+					}
+				});
+			}
+		});
+		/* DETECT CONGRESS SELECTION */
+		$(document).on('change', '.congressSelect', function() {
+			$(this).attr('disabled', 'disabled');
+			$str = "";
+			$("option:selected", this).each(function() {
+				$str += $(this).text();
+			});
+			$congress = $str;
+			/* This gets the JSON data from the API.*/
+			$requestSponsored = "https://congress.api.sunlightfoundation.com/bills?apikey=3sGdHQvxew7uvkKUNBYOa8C8J5vev1735fPSGGBk&sponsor_id=P000603&per_page=10";
+			$requestCosponsored = "https://congress.api.sunlightfoundation.com/bills?apikey=3sGdHQvxew7uvkKUNBYOa8C8J5vev1735fPSGGBk&cosponsor_ids__all=P000603&per_page=10";
+			if ($congress != "All Congresses") {
+				$requestSponsored += "&congress=" + $congress;
+				$requestCosponsored += "&congress=" + $congress;
+			}
+			redoPages($congress, $("#selectMe option:selected").val());
+			if ($("#selectMe option:selected").val() == "1") {
+				jQuery(".resultSp").hide();
+				jQuery("#loadingSp").show();
+				$.getJSON($requestSponsored, function( data ) {
+					sponsored ();
+					function sponsored (){
+						jQuery(".resultSp").remove();
+						data.results.forEach(function(e) {
+							var row = $('<tr class="resultSp"><td><a href="' + e.urls.congress  +'" target="_blank">' + e.bill_id + '</a></td><td>' + e.official_title + '</td><td>' + e.introduced_on + '</td></tr>');
+							$('#sponsored_table').append(row);
+						});
+						jQuery("#loadingSp").hide();
+						$(".congressSelect").removeAttr('disabled');
+					}
+				});
+			}
+			else if ($("#selectMe option:selected").val() == "2") {
+				jQuery(".resultCo").hide();
+				jQuery("#loadingCo").show();
+				$.getJSON($requestCosponsored, function(data) {
+					cosponsored ();
+					function cosponsored (){
+						jQuery(".resultCo").remove();
+						data.results.forEach(function(e) {
+							var row = $('<tr class="resultCo"><td><a href="' + e.urls.congress  +'" target="_blank">' + e.bill_id + '</a></td><td>' + e.official_title + '</td><td>' + e.introduced_on + '</td></tr>');
+							$('#cosponsored_table').append(row);
+						});
+						jQuery("#loadingCo").hide();
+						$(".congressSelect").removeAttr('disabled');
+					}
+				});
+			}
+			//Default to 1.
+			else {
+				jQuery(".resultSp").hide();
+				jQuery("#loadingSp").show();
+				$.getJSON($requestSponsored, function( data ) {
+					sponsored ();
+					function sponsored (){
+						jQuery(".resultSp").remove();
+						data.results.forEach(function(e) {
+							var row = $('<tr class="resultSp"><td><a href="' + e.urls.congress  +'" target="_blank">' + e.bill_id + '</a></td><td>' + e.official_title + '</td><td>' + e.introduced_on + '</td></tr>');
+							$('#sponsored_table').append(row);
+						});
+						jQuery("#loadingSp").hide();
+						$(".congressSelect").removeAttr('disabled');
+					}
+				});
+			}
+			function redoPages($filter, $selected) {
+				$urlSp = "https://congress.api.sunlightfoundation.com/bills?apikey=3sGdHQvxew7uvkKUNBYOa8C8J5vev1735fPSGGBk&sponsor_id=P000603&per_page=10";
+				$urlCo = "https://congress.api.sunlightfoundation.com/bills?apikey=3sGdHQvxew7uvkKUNBYOa8C8J5vev1735fPSGGBk&cosponsor_ids__all=P000603&per_page=10";
+				if ($filter != "All Congresses") {
+					$urlSp += ("&congress=" + $filter);
+					$urlCo += ("&congress=" + $filter);
+				}
+				if ($selected == "1") {
+					jQuery("#pageSelectGoesHere").hide();
+					$.getJSON($urlSp, function( data ) {
+						createPages();
+						function createPages() {
+							$pageNumSpons = Math.ceil(data.count / 10);
+							$options = '<div id = "pageSelectSponsoredDiv" class = "sponsored">Showing page <select class="span4 pageSelect sponsored" name="pageSelect" id="pageSelectSponsored" title="Select Page">';
+							for ($i = 0; $i < $pageNumSpons; $i++) {
+								if ($i == 0) {
+									$options += ('<option value="' + ($i + 1) + '" selected="selected">' + ($i + 1) + '</option>');
+								}
+								else {
+									$options += ('<option value="' + ($i + 1) + '">' + ($i + 1) + '</option>');
+								}
+							}
+							$options += ('</select>&nbsp;of&nbsp;' + $pageNumSpons + '</div>')
+							jQuery("#pageSelectSponsoredDiv").remove();
+							jQuery("#pageSelectGoesHere").append($options);
+							jQuery("#pageSelectGoesHere").show();
+						}
+					});
+				}
+				else if ($selected == "2") {
+					jQuery("#pageSelectGoesHere").hide();
+					$.getJSON($urlCo, function(data) {
+						createPagesCo();
+						function createPagesCo() {
+							$pageNumCospons = Math.ceil(data.count / 10);
+							$options = '<div id="pageSelectCosponsoredDiv" class = "cosponsored test">Showing page <select class="span4 pageSelect cosponsored" name="pageSelect" id="pageSelectCosponsored"  title="Select Page">';
+							for ($i = 0; $i < $pageNumCospons; $i++) {
+								if ($i == 0) {
+									$options += ('<option value="' + ($i + 1) + '" selected="selected">' + ($i + 1) + '</option>');
+								}
+								else {
+									$options += ('<option value="' + ($i + 1) + '">' + ($i + 1) + '</option>');
+								}
+							}
+							$options += ('</select>&nbsp;of&nbsp;' + $pageNumCospons + '</div>')
+							jQuery("#pageSelectCosponsoredDiv").remove();
+							jQuery("#pageSelectGoesHere").append($options);
+							jQuery("#pageSelectGoesHere").show();
+							if ($("#selectMe option:selected").val() != "2") {
+								jQuery(".cosponsored").hide();
+							}
+						}
+					});
+				}
+				else {
+					jQuery("#pageSelectGoesHere").hide();
+					$.getJSON($urlSp, function( data ) {
+						createPages();
+						function createPages() {
+							$pageNumSpons = Math.ceil(data.count / 10);
+							$options = '<div id = "pageSelectSponsoredDiv" class = "sponsored">Showing page <select class="span4 pageSelect sponsored" name="pageSelect" id="pageSelectSponsored" title="Select Page">';
+							for ($i = 0; $i < $pageNumSpons; $i++) {
+								if ($i == 0) {
+									$options += ('<option value="' + ($i + 1) + '" selected="selected">' + ($i + 1) + '</option>');
+								}
+								else {
+									$options += ('<option value="' + ($i + 1) + '">' + ($i + 1) + '</option>');
+								}
+							}
+							$options += ('</select>&nbsp;of&nbsp;' + $pageNumSpons + '</div>')
+							jQuery("#pageSelectSponsoredDiv").remove();
+							jQuery("#pageSelectGoesHere").append($options);
+							jQuery("#pageSelectGoesHere").show();
+						}
+					});
+				}
+			}
+		});
+		window.onload = function(){
+			$("#sponsored_table").show();
+		}
+		/* DETECT SPONSORED/COSPONSORED SELECTION*/
+		$('#selectMe').on('change', function() {
+			if ( this.value == '1')
+			{
+				$(".sponsored").show();
+				$(".cosponsored").hide();
+			}
+			else if (this.value == '2')
+			{
+				$(".sponsored").hide();
+				$(".cosponsored").show();
+			}
+			else 
+			{
+				$(".sponsored").show();
+				$(".cosponsored").hide();
+			}
+		});
+	});
+</script>
+<div class="pagination-right" >
+	<div class="form-inline" id="pageSelectGoesHere">
+		<!--Page selection goes here.-->
+	</div>
+</div>
